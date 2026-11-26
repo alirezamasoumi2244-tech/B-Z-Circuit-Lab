@@ -51,7 +51,7 @@ export default function Scene3D({circuit,onPartValueChange}:Props){
     const foot=new THREE.Mesh(new THREE.BoxGeometry(.55,.07,.08),material);foot.position.y=-.02;add(foot);
    }
    group.add(componentGroup);partMeshes.set(part.id,componentGroup);
-   part.pins.forEach((pin,pinIndex)=>{let px=x,pz=z;if(part.pins.length>=3){px=x+(pinIndex===part.pins.length-1?.55:-.55);pz=z+(pinIndex===0?-.22:pinIndex===1?.22:0);}else if(part.pins.length===2){px=x+(pinIndex===0?-.55:.55);}positions.set(pin.id,new THREE.Vector3(px,.12,pz));});
+   part.pins.forEach((pin,pinIndex)=>{let px=x,pz=z;if(part.pins.length>=3){px=x+(pinIndex === part.pins.length - 1 ? 0.55 : -0.55);pz=z+(pinIndex === 0 ? -0.22 : pinIndex === 1 ? 0.22 : 0);}else if(part.pins.length===2){px=x+(pinIndex===0?-.55:.55);}positions.set(pin.id,new THREE.Vector3(px,.12,pz));});
   });
   const wireMaterials=[0xef727b,0x62a6ff,0x5bd6a5,0xe6b65c,0xb78bff,0x55c8d8,0xf09a55];
   circuit.nets.forEach((net,index)=>{const points=net.pinIds.map(id=>positions.get(id)).filter((p):p is THREE.Vector3=>Boolean(p));if(points.length<2)return;for(let i=1;i<points.length;i++){const geometry=new THREE.BufferGeometry().setFromPoints([points[0],new THREE.Vector3(points[0].x,.2,points[0].z),new THREE.Vector3(points[i].x,.2,points[i].z),points[i]]);const line=new THREE.Line(geometry,new THREE.LineBasicMaterial({color:wireMaterials[index%wireMaterials.length],linewidth:3}));group.add(line);}});
