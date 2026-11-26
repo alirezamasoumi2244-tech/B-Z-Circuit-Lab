@@ -8,7 +8,7 @@ pub fn run() {
 
 #[tauri::command]
 fn run_spice(netlist: String) -> Result<String, String> {
-    use std::{fs, process::Command, time::{SystemTime, UNIX_EPOCH}};
+    use std::{fs, process::{Command, Stdio}, time::{SystemTime, UNIX_EPOCH, Instant}, thread::sleep, time::Duration};
     if netlist.len() > 2_000_000 { return Err("Netlist is too large (2 MB limit).".into()); }
     if !netlist.to_ascii_lowercase().contains(".end") { return Err("Invalid SPICE netlist: missing .end.".into()); }
     let id = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
