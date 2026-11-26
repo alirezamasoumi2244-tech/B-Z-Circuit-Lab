@@ -22,6 +22,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install dependencies
         run: npm install
+      - name: Run engineering tests
+        run: npm test
       - name: Build Tauri installer
         run: npm run tauri -- build
       - name: Upload Windows installer
