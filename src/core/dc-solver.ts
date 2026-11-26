@@ -15,7 +15,10 @@ function gaussianSolve(a: number[][], b: number[]): number[] | null {
   }
   return b;
 }
-function parseValue(v:string|undefined,fallback:number){const n=Number((v??"").replace(/[^0-9.eE+-]/g,""));return Number.isFinite(n)&&n>0?n:fallback;}
+function parseValue(v:string|undefined,fallback:number){
+ const raw=(v??"").trim().replace(/,/g,".");const match=raw.match(/^([0-9]*\\.?[0-9]+)\\s*([pnumkKMG]?)\\s*(?:Ω|ohm|ohms|V|v|R|r|F|H)?$/i);
+ if(!match)return fallback;const base=Number(match[1]);const suffix=match[2];const scale:Record<string,number>={p:1e-12,n:1e-9,u:1e-6,m:1e-3,k:1e3,K:1e3,M:1e6,G:1e9,"":1};const result=base*(scale[suffix]??1);return Number.isFinite(result)&&result>0?result:fallback;
+}
 
 export function solveDcCircuit(doc:CircuitDocument):DcResult {
   const pinToNode=new Map<string,string>();
