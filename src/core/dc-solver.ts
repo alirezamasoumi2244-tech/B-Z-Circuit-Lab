@@ -27,7 +27,7 @@ function gaussianSolve(a: number[][], b: number[]): number[] | null {
 
 export function parseElectricalValue(value: string | undefined, fallback: number): number {
   if (!value?.trim()) return fallback;
-  const raw = value.trim().replace(/,/g, ".").replace(/Ω|ohms?|volts?|farads?|henries?/gi, "").replace(/\s/g, "");
+  const raw = value.trim().replace(/,/g, ".").replace(/Ω|ohms?|v(?:olts?)?|farads?|henries?/gi, "").replace(/\s/g, "");
   const match = raw.match(/^([0-9]*\.?[0-9]+)(p|n|u|µ|m|k|K|meg|M|G)?$/i);
   if (!match) return fallback;
   const suffix = match[2] ?? "";
@@ -69,6 +69,8 @@ export function solveDcCircuit(doc: CircuitDocument): DcResult {
   if (!sources.length) throw new Error("مدار منبع تغذیه DC ندارد.");
   for (const source of sources) if (source.pins.length < 2) throw new Error(`پایه‌های منبع ${source.reference} ناقص است.`);
 
+  const sourceData = sources.map(c => ({ component: c, p: dsu.find(c.pins[0].id), n: dsu.find(c.pins[1].id), v: parseElectricalValue(c.value, 5) }));
+  for (const source of sourceData) if (source.p === source.n) throw new Error(`منبع ${source.component.reference} اتصال کوتاه شده است.`);
   const grounds = doc.components.filter(c => c.partId === "ground" && c.pins[0]);
   const reference = dsu.find(grounds[0]?.pins[0].id ?? sources[0].pins[1].id);
   const resistors = doc.components.filter(c => c.partId === "resistor");
@@ -78,9 +80,6 @@ export function solveDcCircuit(doc: CircuitDocument): DcResult {
     if (c.pins.length < 2) throw new Error(`پایه‌های مقاومت ${c.reference} ناقص است.`);
     return { component: c, a: dsu.find(c.pins[0].id), b: dsu.find(c.pins[1].id), r: parseElectricalValue(c.value, 1000) };
   });
-  const sourceData = sources.map(c => ({ component: c, p: dsu.find(c.pins[0].id), n: dsu.find(c.pins[1].id), v: parseElectricalValue(c.value, 5) }));
-  for (const s of sourceData) if (s.p === s.n) throw new Error(`منبع ${s.component.reference} اتصال کوتاه شده است.`);
-
   const nodeSet = new Set<string>();
   for (const r of resistorData) { nodeSet.add(r.a); nodeSet.add(r.b); }
   for (const s of sourceData) { nodeSet.add(s.p); nodeSet.add(s.n); }
