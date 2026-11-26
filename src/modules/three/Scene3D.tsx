@@ -24,13 +24,19 @@ export default function Scene3D({circuit,onPartValueChange}:Props){
   const positions=new Map<string,THREE.Vector3>();
   const clickable:THREE.Object3D[]=[];
   const partMeshes=new Map<string,THREE.Object3D>();
-  const colors:Record<string,number>={resistor:0xd6a34e,led:0x3bd69b,battery:0x649dff,switch:0xb18aff,ground:0x9aa9bc};
+  const colors:Record<string,number>={resistor:0xd6a34e,capacitor:0x72c8e8,led:0x3bd69b,battery:0x649dff,switch:0xb18aff,ground:0x9aa9bc};
   circuit.components.forEach((part,index)=>{
    const x=(part.position.x-260)/70,z=(part.position.y-180)/70,color=colors[part.partId]??0x8daaff;
    const material=new THREE.MeshStandardMaterial({color,metalness:.22,roughness:.42});
    const componentGroup=new THREE.Group();componentGroup.position.set(x,.35,z);componentGroup.userData={componentId:part.id,partId:part.partId,reference:part.reference};
    const add=(mesh:THREE.Mesh)=>{mesh.userData={componentId:part.id,partId:part.partId,reference:part.reference};componentGroup.add(mesh);clickable.push(mesh);};
-   if(part.partId==="resistor"){
+   if(part.partId==="capacitor"){
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.52,16),new THREE.MeshStandardMaterial({color:0x72c8e8,metalness:.3,roughness:.35}));body.rotation.z=Math.PI/2;add(body);
+    const plateMat=new THREE.MeshStandardMaterial({color:0xd9f5ff,metalness:.75,roughness:.2});
+    [-.12,.12].forEach(dx=>{const plate=new THREE.Mesh(new THREE.BoxGeometry(.035,.62,.48),plateMat);plate.position.x=dx;add(plate);});
+    const leadMat=new THREE.MeshStandardMaterial({color:0xc7d0db,metalness:.8,roughness:.22});
+    [-.62,.62].forEach(dx=>{const lead=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.4,8),leadMat);lead.rotation.z=Math.PI/2;lead.position.x=dx;add(lead);});
+   }else if(part.partId==="resistor"){
     const body=new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,.82,16),material);body.rotation.z=Math.PI/2;add(body);
     const leadMat=new THREE.MeshStandardMaterial({color:0xc7d0db,metalness:.8,roughness:.22});
     [-.62,.62].forEach(dx=>{const lead=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.48,8),leadMat);lead.rotation.z=Math.PI/2;lead.position.x=dx;add(lead);});
