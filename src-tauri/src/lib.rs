@@ -8,7 +8,7 @@ pub fn run() {
 
 #[tauri::command]
 fn run_spice(netlist: String) -> Result<String, String> {
-    use std::{fs, process::{Command, Stdio}, time::{SystemTime, UNIX_EPOCH, Instant}, thread::sleep, time::Duration};
+    use std::{fs, process::Command, time::{SystemTime, UNIX_EPOCH}};
     if netlist.len() > 2_000_000 { return Err("Netlist is too large (2 MB limit).".into()); }
     if !netlist.to_ascii_lowercase().contains(".end") { return Err("Invalid SPICE netlist: missing .end.".into()); }
     let id = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|e| e.to_string())?.as_nanos();
@@ -29,7 +29,7 @@ fn run_spice(netlist: String) -> Result<String, String> {
 
 #[tauri::command]
 fn arduino_compile_simulate(sketch: String, fqbn: String) -> Result<String, String> {
-    use std::{fs, process::Command, time::{SystemTime, UNIX_EPOCH}};
+    use std::{fs, process::{Command, Stdio}, time::{SystemTime, UNIX_EPOCH, Instant, Duration}, thread::sleep};
     let supported = ["arduino:avr:uno", "arduino:avr:nano"];
     if !supported.contains(&fqbn.as_str()) { return Err("Only Arduino Uno R3 and Nano (ATmega328P) are enabled in this build.".into()); }
     if sketch.len() > 512_000 { return Err("Sketch exceeds the 512 KB limit.".into()); }
@@ -39,8 +39,7 @@ fn arduino_compile_simulate(sketch: String, fqbn: String) -> Result<String, Stri
     let build_dir = root.join("build");
     fs::create_dir_all(&sketch_dir).map_err(|e| e.to_string())?;
     fs::create_dir_all(&build_dir).map_err(|e| e.to_string())?;
-    let ino = sketch_dir.join("Sketch.ino");
-    fs::write(&ino, sketch).map_err(|e| e.to_string())?;
+    fs::write(sketch_dir.join("Sketch.ino"), sketch).map_err(|e| e.to_string())?;
     let compile = Command::new("arduino-cli").args(["compile", "--fqbn", &fqbn, "--output-dir"]).arg(&build_dir).arg(&sketch_dir).output();
     let compile = match compile {
         Ok(v) => v,
@@ -51,9 +50,24 @@ fn arduino_compile_simulate(sketch: String, fqbn: String) -> Result<String, Stri
     if !compile.status.success() { let _ = fs::remove_dir_all(&root); return Err(format!("Arduino compilation failed:\n{compile_log}")); }
     let hex = fs::read_dir(&build_dir).map_err(|e| e.to_string())?.filter_map(Result::ok).map(|e| e.path()).find(|p| p.extension().and_then(|s| s.to_str()).map(|s| s.eq_ignore_ascii_case("hex")).unwrap_or(false));
     let Some(hex_path) = hex else { let _ = fs::remove_dir_all(&root); return Err(format!("Compilation succeeded but no HEX file was produced.\n{compile_log}")); };
-    let sim = Command::new("simavr").args(["-m", "atmega328p", "-f", "16000000"]).arg(&hex_path).output();
+    let sim = Command::new("simavr").args(["-m", "atmega328p", "-f", "16000000"]).arg(&hex_path).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
     let result = match sim {
-        Ok(out) => format!("COMPILE SUCCESS\n{compile_log}\nSIMAVR OUTPUT\n{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)),
+        Ok(mut child) => {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut finished = false;
+            while Instant::now() < deadline {
+                match child.try_wait() {
+                    Ok(Some(_)) => { finished = true; break; },
+                    Ok(None) => sleep(Duration::from_millis(100)),
+                    Err(_) => break,
+                }
+            }
+            if !finished { let _ = child.kill(); }
+            match child.wait_with_output() {
+                Ok(out) => format!("COMPILE SUCCESS\n{compile_log}\nSIMAVR OUTPUT (5 second capture)\n{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)),
+                Err(e) => format!("COMPILE SUCCESS\n{compile_log}\nCould not collect simavr output: {e}")
+            }
+        },
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => format!("COMPILE SUCCESS\n{compile_log}\nSIMULATION NOT RUN: simavr is not installed or not in PATH."),
         Err(e) => format!("COMPILE SUCCESS\n{compile_log}\nCould not start simavr: {e}")
     };
