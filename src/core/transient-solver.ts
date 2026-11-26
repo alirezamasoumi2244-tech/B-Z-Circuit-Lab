@@ -2,6 +2,7 @@ import type { CircuitDocument } from "./circuit";
 import { parseElectricalValue } from "./dc-solver";
 
 export type TransientSample = { timeSeconds: number; nodeVoltages: Record<string, number> };
+function parseCapacitance(value:string|undefined):number{return parseElectricalValue(value?.trim().replace(/F$/i,""),100e-6);}
 export type TransientResult = { samples: TransientSample[]; stepSeconds: number; durationSeconds: number };
 
 function solveLinear(matrix:number[][],rhs:number[]):number[]|null{
@@ -53,7 +54,7 @@ export function solveTransientCircuit(doc:CircuitDocument,durationSeconds:number
  });
  const capacitors=doc.components.filter(c=>c.partId==="capacitor").map(c=>{
   if(c.pins.length<2)throw new Error("پایه‌های خازن ناقص است: "+c.reference);
-  return{reference:c.reference,a:dsu.find(c.pins[0].id),b:dsu.find(c.pins[1].id),farads:parseElectricalValue(c.value,100e-6)};
+  return{reference:c.reference,a:dsu.find(c.pins[0].id),b:dsu.find(c.pins[1].id),farads:parseCapacitance(c.value)};
  });
  if(!resistors.length||!capacitors.length)throw new Error("برای تحلیل گذرای RC حداقل یک مقاومت و یک خازن لازم است.");
  const ground=doc.components.find(c=>c.partId==="ground"&&c.pins[0]);
