@@ -1,7 +1,7 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![run_spice, arduino_compile_simulate])
+        .invoke_handler(tauri::generate_handler![run_spice, arduino_compile_simulate, search_components, import_catalog_jsonl])
         .run(tauri::generate_context!())
         .expect("error while running B-Z Circuit Lab");
 }
@@ -73,4 +73,100 @@ fn arduino_compile_simulate(sketch: String, fqbn: String) -> Result<String, Stri
     };
     let _ = fs::remove_dir_all(&root);
     Ok(result)
+}
+
+#[derive(serde::Serialize)]
+struct CatalogComponent {
+    manufacturer: String,
+    mpn: String,
+    description: String,
+    support_level: String,
+    package: Option<String>,
+    spice_model: Option<String>,
+    datasheet_url: Option<String>,
+    source_name: String,
+    source_url: String,
+    license_id: String,
+}
+
+#[derive(serde::Deserialize)]
+struct CatalogImportRecord {
+    manufacturer: String,
+    mpn: String,
+    description: String,
+    support_level: String,
+    #[serde(default)] package: Option<String>,
+    #[serde(default)] symbol: Option<String>,
+    #[serde(default)] footprint: Option<String>,
+    #[serde(default)] spice_model: Option<String>,
+    #[serde(default)] datasheet_url: Option<String>,
+    source_name: String,
+    source_url: String,
+    license_id: String,
+    #[serde(default)] metadata: Option<serde_json::Value>,
+}
+
+fn catalog_db(app: &tauri::AppHandle) -> Result<rusqlite::Connection, String> {
+    use tauri::Manager;
+    let dir = app.path().app_data_dir().map_err(|e| format!("Cannot locate app data: {e}"))?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot create app data directory: {e}"))?;
+    let db = rusqlite::Connection::open(dir.join("components.sqlite")).map_err(|e| format!("Cannot open catalog: {e}"))?;
+    db.execute_batch("PRAGMA journal_mode=WAL;
+      CREATE TABLE IF NOT EXISTS components (
+        id INTEGER PRIMARY KEY,
+        manufacturer TEXT NOT NULL,
+        mpn TEXT NOT NULL,
+        description TEXT NOT NULL,
+        support_level TEXT NOT NULL CHECK(support_level IN ('A','B','C')),
+        package TEXT, symbol TEXT, footprint TEXT, spice_model TEXT, datasheet_url TEXT,
+        source_name TEXT NOT NULL, source_url TEXT NOT NULL, license_id TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
+        UNIQUE(manufacturer,mpn)
+      );
+      CREATE INDEX IF NOT EXISTS idx_catalog_mpn ON components(mpn);
+      CREATE INDEX IF NOT EXISTS idx_catalog_manufacturer ON components(manufacturer);
+      CREATE INDEX IF NOT EXISTS idx_catalog_description ON components(description);")
+      .map_err(|e| format!("Cannot initialize catalog: {e}"))?;
+    Ok(db)
+}
+
+#[tauri::command]
+fn search_components(app: tauri::AppHandle, query: String, limit: Option<u32>) -> Result<Vec<CatalogComponent>, String> {
+    let db = catalog_db(&app)?;
+    let q = format!("%{}%", query.trim());
+    let limit = limit.unwrap_or(50).clamp(1, 500);
+    let mut statement = db.prepare("SELECT manufacturer,mpn,description,support_level,package,spice_model,datasheet_url,source_name,source_url,license_id FROM components WHERE ?1='' OR manufacturer LIKE ?2 OR mpn LIKE ?2 OR description LIKE ?2 ORDER BY manufacturer,mpn LIMIT ?3")
+      .map_err(|e| e.to_string())?;
+    let rows = statement.query_map(rusqlite::params![query.trim(), q, limit], |row| Ok(CatalogComponent {
+        manufacturer: row.get(0)?, mpn: row.get(1)?, description: row.get(2)?, support_level: row.get(3)?,
+        package: row.get(4)?, spice_model: row.get(5)?, datasheet_url: row.get(6)?,
+        source_name: row.get(7)?, source_url: row.get(8)?, license_id: row.get(9)?,
+    })).map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn import_catalog_jsonl(app: tauri::AppHandle, content: String) -> Result<String, String> {
+    if content.len() > 20_000_000 { return Err("Catalog import is limited to 20 MB per file.".into()); }
+    let mut db = catalog_db(&app)?;
+    let tx = db.transaction().map_err(|e| e.to_string())?;
+    let mut inserted = 0usize;
+    let mut duplicates = 0usize;
+    for (index, line) in content.lines().enumerate() {
+        if line.trim().is_empty() { continue; }
+        let item: CatalogImportRecord = serde_json::from_str(line).map_err(|e| format!("Invalid JSON on line {}: {e}", index + 1))?;
+        if item.manufacturer.trim().is_empty() || item.mpn.trim().is_empty() || item.description.trim().is_empty()
+            || item.source_name.trim().is_empty() || item.source_url.trim().is_empty() || item.license_id.trim().is_empty() {
+            return Err(format!("Required catalog fields are missing on line {}.", index + 1));
+        }
+        if !["A", "B", "C"].contains(&item.support_level.as_str()) {
+            return Err(format!("Invalid support_level on line {}; use A, B or C.", index + 1));
+        }
+        let changed = tx.execute("INSERT OR IGNORE INTO components (manufacturer,mpn,description,support_level,package,symbol,footprint,spice_model,datasheet_url,source_name,source_url,license_id,metadata_json) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
+            rusqlite::params![item.manufacturer,item.mpn,item.description,item.support_level,item.package,item.symbol,item.footprint,item.spice_model,item.datasheet_url,item.source_name,item.source_url,item.license_id,item.metadata.unwrap_or(serde_json::Value::Null).to_string()])
+            .map_err(|e| format!("Database error on line {}: {e}", index + 1))?;
+        if changed == 1 { inserted += 1; } else { duplicates += 1; }
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(format!("Imported {inserted} components; skipped {duplicates} duplicates."))
 }
