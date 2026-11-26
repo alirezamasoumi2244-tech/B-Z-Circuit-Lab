@@ -3,7 +3,7 @@ import type { CircuitDocument, ComponentInstance } from "./circuit";
 export type LogicBit = 0 | 1;
 export type DigitalResult = {
   nets: Record<string, LogicBit>;
-  gates: Array<{ reference: string; value: LogicBit }>;
+  gates: Array<{ reference: string; value: LogicBit | null }>;
   outputs: Array<{ reference: string; value: LogicBit | null }>;
 };
 
@@ -58,5 +58,5 @@ export function evaluateDigitalCircuit(doc:CircuitDocument):DigitalResult{
     const node=output.pins[0]?nodeFor(output.pins[0].id,pinToNet):"";
     return {reference:output.reference,value:values.get(node)??null};
   });
-  return {nets:Object.fromEntries(values),gates:gateResults as Array<{reference:string;value:LogicBit}>,outputs};
+  return {nets:Object.fromEntries(values),gates:gateResults,outputs};
 }
