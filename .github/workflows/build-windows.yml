@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
