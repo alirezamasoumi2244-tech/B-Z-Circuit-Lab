@@ -1,0 +1,5 @@
+import type { CircuitDocument } from "../../core/circuit";
+export default function BreadboardView({circuit}:{circuit:CircuitDocument}){
+ const rows=Array.from({length:10},(_,i)=>i);
+ return <section className="breadboard-panel"><div className="breadboard-title"><b>VIRTUAL BREADBOARD</b><span>{circuit.components.length} COMPONENTS · {circuit.nets.length} NETS</span></div><div className="breadboard"><div className="rail positive">+ POWER RAIL</div><div className="rail negative">− GROUND RAIL</div><div className="breadboard-holes">{rows.map(row=><div className="hole-row" key={row}><small>{String.fromCharCode(65+row)}</small>{Array.from({length:24},(_,col)=><i key={col} className={(col===11||col===12)?"gap-hole":""}/>)}</div>)}</div></div><p className="breadboard-note">نمایش اولیه چیدمان بردبورد؛ نگاشت خودکار پایه‌های قطعات به سوراخ‌ها هنوز فعال نشده است. شماتیک و مدل مدار فعلاً در یک سند ذخیره می‌شوند.</p></section>
+}
