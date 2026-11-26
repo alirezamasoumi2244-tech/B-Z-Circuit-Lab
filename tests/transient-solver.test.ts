@@ -14,10 +14,10 @@ describe("RC transient solver",()=>{
  it("simulates capacitor charging with a backward-Euler time step",()=>{
   const result=solveTransientCircuit(makeCircuit(),1,0.001);
   const final=result.samples[result.samples.length-1];
-  const node=Object.entries(final.nodeVoltages).find(([id])=>id!=="GND");
-  expect(node).toBeDefined();
-  expect(node![1]).toBeGreaterThan(4.9);
-  expect(node![1]).toBeLessThan(5.01);
+  const nodeVoltage=final.nodeVoltages["R-2"];
+  expect(nodeVoltage).toBeDefined();
+  expect(nodeVoltage).toBeGreaterThan(4.9);
+  expect(nodeVoltage).toBeLessThan(5.01);
  });
  it("rejects an excessive number of time steps",()=>{
   expect(()=>solveTransientCircuit(makeCircuit(),10,0.0001)).toThrow(/۱۰۰۰۰/);
