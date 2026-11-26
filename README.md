@@ -1,26 +1,20 @@
 # B-Z Circuit Lab
-
 **B-Z TEAM** · Windows desktop electronics design and simulation environment.
 
-This repository contains the early application foundation. The complete simulator, million-part catalog, PCB tools, AI image import and interactive 3D lab are roadmap goals—not features claimed to be finished in this initial scaffold.
+## Current alpha (v0.2.0)
+- Tauri 2 desktop shell with Persian/English interface.
+- Interactive starter schematic: add resistor, LED, DC battery, switch and ground; move parts; edit reference/value; connect pins; save locally.
+- Three.js 3D component preview with orbit and zoom controls.
+- Starter current estimate panel (not a full SPICE solver).
+- GitHub Actions Windows installer build.
 
-## Goals
-- Windows desktop EXE using Tauri 2, React, TypeScript and Rust.
-- Persian and English interface; offline-first circuit design.
-- One shared circuit model for schematic, breadboard, PCB, simulation and 3D.
-- Component catalog targeting 1,000,000+ records with support levels A (validated simulation), B (design assets), C (metadata/datasheet).
-- ngspice for supported analog models; Arduino CLI and simavr only for supported AVR boards; separate digital simulation.
-- Interactive Three.js 3D lab linked to circuit and simulation state.
-- Optional online AI-assisted circuit image import and KiCad-compatible PCB interchange.
+## Roadmap / not yet implemented
+The million-part licensed catalog, full schematic net engine, synchronized breadboard, validated SPICE/digital simulation, Arduino execution, full 3D interaction, AI image recognition and PCB editor are not complete in this alpha. See [roadmap](docs/ROADMAP.md).
 
 ## Development
-Requirements: Node.js 20+, Rust stable, Windows 10/11 for installer packaging.
-
+Node.js 20+, Rust stable, Windows 10/11.
 ```bash
 npm install
 npm run dev
 ```
-
-Build the Windows desktop application with `npm run tauri -- build`.
-
-See [architecture](docs/ARCHITECTURE.md) and [roadmap](docs/ROADMAP.md).
+Build: `npm run tauri -- build`.
