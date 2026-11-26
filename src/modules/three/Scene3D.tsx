@@ -44,21 +44,23 @@ export default function Scene3D({circuit,onPartValueChange}:Props){
    }else if(part.partId==="switch"){
     const base=new THREE.Mesh(new THREE.BoxGeometry(.85,.18,.42),new THREE.MeshStandardMaterial({color:0x3e4a61}));add(base);
     const lever=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.58,10),new THREE.MeshStandardMaterial({color:0xe4e9f2,metalness:.7}));lever.position.set(0,.3,0);lever.rotation.z=(part.value?.toLowerCase()==="closed"?-.25:.25);add(lever);
+   }else if(part.partId.startsWith("logic_")){
+    const body=new THREE.Mesh(new THREE.BoxGeometry(.82,.3,.72),new THREE.MeshStandardMaterial({color:0x7353a8,metalness:.08,roughness:.55}));add(body);
    }else{
     const bar=new THREE.Mesh(new THREE.BoxGeometry(.8,.07,.08),material);bar.position.y=.1;add(bar);
     const foot=new THREE.Mesh(new THREE.BoxGeometry(.55,.07,.08),material);foot.position.y=-.02;add(foot);
    }
    group.add(componentGroup);partMeshes.set(part.id,componentGroup);
-   part.pins.forEach((pin,pinIndex)=>{const offset=part.pins.length===1?0:(pinIndex===0?-.55:.55);positions.set(pin.id,new THREE.Vector3(x+offset,.12,z));});
+   part.pins.forEach((pin,pinIndex)=>{let px=x,pz=z;if(part.pins.length>=3){px=x+(pinIndex===part.pins.length-1?.55:-.55);pz=z+(pinIndex===0?-.22:pinIndex===1?.22:0);}else if(part.pins.length===2){px=x+(pinIndex===0?-.55:.55);}positions.set(pin.id,new THREE.Vector3(px,.12,pz));});
   });
   const wireMaterials=[0xef727b,0x62a6ff,0x5bd6a5,0xe6b65c,0xb78bff,0x55c8d8,0xf09a55];
   circuit.nets.forEach((net,index)=>{const points=net.pinIds.map(id=>positions.get(id)).filter((p):p is THREE.Vector3=>Boolean(p));if(points.length<2)return;for(let i=1;i<points.length;i++){const geometry=new THREE.BufferGeometry().setFromPoints([points[0],new THREE.Vector3(points[0].x,.2,points[0].z),new THREE.Vector3(points[i].x,.2,points[i].z),points[i]]);const line=new THREE.Line(geometry,new THREE.LineBasicMaterial({color:wireMaterials[index%wireMaterials.length],linewidth:3}));group.add(line);}});
   const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
-  const onPointerDown=(event:PointerEvent)=>{const rect=renderer.domElement.getBoundingClientRect();pointer.x=((event.clientX-rect.left)/rect.width)*2-1;pointer.y=-((event.clientY-rect.top)/rect.height)*2+1;raycaster.setFromCamera(pointer,camera);const hit=raycaster.intersectObjects(clickable,false)[0];if(!hit)return;const data=hit.object.userData as {componentId?:string;partId?:string;reference?:string};if(!data.componentId)return;const current=circuit.components.find(c=>c.id===data.componentId);if(!current)return;if(data.partId==="switch")updateRef.current?.(current.id,(current.value??"Open").toLowerCase()==="closed"?"Open":"Closed");else if(data.partId==="led")updateRef.current?.(current.id,(current.value??"Off").toLowerCase()==="on"?"Off":"On");};
+  const onPointerDown=(event:PointerEvent)=>{const rect=renderer.domElement.getBoundingClientRect();pointer.x=((event.clientX-rect.left)/rect.width)*2-1;pointer.y=-((event.clientY-rect.top)/rect.height)*2+1;raycaster.setFromCamera(pointer,camera);const hit=raycaster.intersectObjects(clickable,false)[0];if(!hit)return;const data=hit.object.userData as {componentId?:string;partId?:string;reference?:string};if(!data.componentId)return;const current=circuit.components.find(c=>c.id===data.componentId);if(!current)return;if(data.partId==="switch")updateRef.current?.(current.id,(current.value??"Open").toLowerCase()==="closed"?"Open":"Closed");else if(data.partId==="led")updateRef.current?.(current.id,(current.value??"Off").toLowerCase()==="on"?"Off":"On");else if(data.partId==="logic_input")updateRef.current?.(current.id,(current.value??"0")==="1"?"0":"1");};
   renderer.domElement.addEventListener("pointerdown",onPointerDown);
   let frame=0;const animate=()=>{frame=requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)};animate();
   const resize=()=>{if(!root.clientWidth||!root.clientHeight)return;camera.aspect=root.clientWidth/root.clientHeight;camera.updateProjectionMatrix();renderer.setSize(root.clientWidth,root.clientHeight)};const observer=new ResizeObserver(resize);observer.observe(root);
   return()=>{cancelAnimationFrame(frame);observer.disconnect();renderer.domElement.removeEventListener("pointerdown",onPointerDown);controls.dispose();renderer.dispose();root.removeChild(renderer.domElement);scene.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.Line){o.geometry.dispose();const m=o.material;if(Array.isArray(m))m.forEach(x=>x.dispose());else m.dispose();}});};
  },[circuit]);
- return <div className="scene-wrap"><div className="scene-label">3D INTERACTIVE CIRCUIT · DRAG TO ORBIT · SCROLL TO ZOOM · TAP SWITCH / LED TO TOGGLE</div><div ref={host} className="scene-host"/><div className="scene-count">{circuit.components.length} COMPONENTS · {circuit.nets.length} NETS</div></div>;
+ return <div className="scene-wrap"><div className="scene-label">3D INTERACTIVE CIRCUIT · DRAG TO ORBIT · SCROLL TO ZOOM · TAP SWITCH / LED / LOGIC INPUT TO TOGGLE</div><div ref={host} className="scene-host"/><div className="scene-count">{circuit.components.length} COMPONENTS · {circuit.nets.length} NETS</div></div>;
 }
