@@ -1,7 +1,7 @@
 # Engineering modules: current integration status
 
 ## SPICE
-The app creates a basic resistor + independent DC voltage source netlist from the current circuit and can call the native `ngspice -b` executable. Install ngspice separately and put it on PATH. Capacitors, inductors, semiconductor models, AC/transient analyses, probes and waveform plotting are not implemented yet.
+The app creates a basic netlist with resistors, capacitors and independent DC voltage sources from the current circuit and can call the native `ngspice -b` executable. Capacitors are represented in the generated netlist (for example, `100µF` becomes `100u`); install ngspice separately and put it on PATH. This is still a limited device set: inductors, semiconductor models, AC/transient analyses, probes and waveform plotting are not implemented. The separate DC nodal solver treats capacitors as open circuits at steady state.
 
 ## Digital logic
 A local truth-table workbench currently evaluates AND, OR, XOR, NAND, NOR and NOT. Gate graph wiring, propagation delays, flip-flops and clocked simulation remain future work.
